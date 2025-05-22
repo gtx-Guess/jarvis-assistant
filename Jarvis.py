@@ -16,8 +16,13 @@ stdout = sys.stdout
 sys.stderr = DevNull()
 sys.stdout = DevNull()
 
-# Import your modules
-from RealtimeSTT import AudioToTextRecorder
+# Try to import RealtimeSTT - if it fails, we'll use text input
+try:
+    from RealtimeSTT import AudioToTextRecorder
+    STT_AVAILABLE = True
+except ImportError:
+    STT_AVAILABLE = False
+
 import utils
 import time
 from utils import mixer
@@ -27,11 +32,76 @@ sys.stderr = stderr
 sys.stdout = stdout
 
 
-if __name__ == '__main__':
-    recorder = AudioToTextRecorder(spinner=False, model="tiny.en", language="en", post_speech_silence_duration=0.5, silero_sensitivity=0.6)
-    hot_words = ["jarvis", "?", "shutdown", "shut down", "right", "correct", "could I", "is it possible", "can I", "listen up",]
+def text_input_mode():
+    """Handle text-based input when STT is not available"""
+    hot_words = ["jarvis", "?", "shutdown", "shut down", "right", "correct", "could I", "is it possible", "can I", "listen up"]
     skip_hot_word_check = False
+    
+    print("Jarvis Text Assistant Ready...")
+    print("Type 'shutdown' or 'shut down' to exit.")
+    print("=" * 50)
+    text_input_counter = 0
+    try:
+        while True:
+            # Get text input from user
+            try:
+                current_text = input("You: ").strip()
+            except EOFError:
+                # Handle Ctrl+D
+                break
+            
+            if not current_text:
+                continue
+                
+            print(f"User: {current_text}")
+            
+            # Check for hot words or if we're in skip mode
+            if any(hot_word in current_text.lower() for hot_word in hot_words) or skip_hot_word_check:
+                if current_text:
+                    # Check for shutdown command
+                    if "shutdown" in current_text.lower() or "shut down" in current_text.lower():
+                        try:
+                            goodbye = "Shutting down now, Sir. Goodbye."
+                            print(f"Jarvis: {goodbye}")
+                            utils.tts_caller(goodbye)
+                            time.sleep(1)
+                        finally:
+                            mixer.quit()
+                            print("Goodbye!")
+                            return
+                    else:
+                        # Process the request
+                        current_text = current_text + " " + time.strftime("%Y-%m-%d %H-%M-%S")
+                        response = utils.ask_question_memory(current_text)
+                        
+                        # Split response and speech
+                        speech = response.split('#')[0]
+                        print(f"Jarvis: {speech}")
+                        
+                        # Play TTS
+                        utils.tts_caller(speech)
+                        
+                        # Check if we should skip hot word check next time
+                        skip_hot_word_check = True if "?" in response else False
+            else:
+                text_input_counter += 1
+                if text_input_counter == 10:
+                    print("Jarvis: I'm listening for a hot word to activate...")
+                
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        mixer.quit()
+        print("Goodbye!")
+
+
+def speech_input_mode():
+    """Handle speech-to-text input when STT is available"""
+    recorder = AudioToTextRecorder(spinner=False, model="tiny.en", language="en", post_speech_silence_duration=0.5, silero_sensitivity=0.6)
+    hot_words = ["jarvis", "?", "shutdown", "shut down", "right", "correct", "could I", "is it possible", "can I", "listen up"]
+    skip_hot_word_check = False
+    
     print("Jarvis Is Listening . . .")
+    
     try:
         while True:
             current_text = recorder.text()
@@ -50,7 +120,7 @@ if __name__ == '__main__':
                             mixer.quit()
                             os._exit(0)
                     else:
-                        current_text = current_text + " " + time.strftime("%Y-m-%d %H-%M-%S")
+                        current_text = current_text + " " + time.strftime("%Y-%m-%d %H-%M-%S")
                         response = utils.ask_question_memory(current_text)
                         print(response)
                         speech = response.split('#')[0]
@@ -63,3 +133,12 @@ if __name__ == '__main__':
         mixer.quit()
         sys.stderr = stderr
         os.exit(0)
+
+
+if __name__ == '__main__':
+    if STT_AVAILABLE:
+        print("RealtimeSTT detected - Using speech input mode")
+        speech_input_mode()
+    else:
+        print("RealtimeSTT not available - Using text input mode")
+        text_input_mode()
