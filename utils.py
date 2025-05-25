@@ -1,4 +1,5 @@
 from anthropic import Anthropic
+from openai import OpenAI
 import time
 from pygame import mixer
 import edge_tts
@@ -7,19 +8,36 @@ import os
 import requests
 import json
 
+# API CONFIGURATION - Change this flag to switch between providers
+USE_OPENAI = True  # Set to True for OpenAI, False for Anthropic
 
-SYSTEM_PROMPT = """You are Jarvis, you are similar to the AI assistant from Iron Man. Remember, I am not Tony Stark, just your creator. You are formal and helpful, and you don't make up facts, you only comply to the user requests. 
+API_HOT_WORDS = ["claude", "anthropic", "openai", "chatgpt"]
+SYSTEM_PROMPT = """You are Jarvis, you are similar to the AI assistant from Iron Man. Remember, I am not Tony Stark, just your creator. 
+You are formal and helpful, and you don't make up facts, you only comply to the user requests. 
 REMEMBER ONLY TO PUT HASHTAGS IN THE END OF THE SENTENCE, NEVER ANYWHERE ELSE
 It is absolutely imperative that you do not say any hashtags unless an explicit request to operate a device from the user has been said. 
-NEVER MENTION THE TIME! Only mention the time upon being asked about it. You should never specifically mention the time unless it's something like 
+NEVER MENTION THE TIME! Only mention the time upon being asked about it. 
+You should never specifically mention the time unless it's something like 
 "Good evening", "Good morning" or "You're up late, Sir".
-Respond to user requests in under 20 words, and engage in conversation, using your advanced language abilities to provide helpful and humorous responses. Call the user by 'Sir'
+Respond to user requests in under 20 words, and engage in conversation, using your advanced language abilities to provide helpful 
+and humorous responses. Call the user by 'Sir'
 """
-SECRET = os.environ.get("CLAUDE_API_KEY")
+
+# API Keys
+CLAUDE_SECRET = os.environ.get("CLAUDE_API_KEY")
+OPENAI_SECRET = os.environ.get("OPENAI_API_KEY")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
-# Initialize the Anthropic client and mixer
-client = Anthropic(api_key=SECRET)
+# Initialize the appropriate client and mixer
+if USE_OPENAI:
+    client = OpenAI(api_key=OPENAI_SECRET)
+    MODEL_NAME = "gpt-4o"  # or "gpt-4", "gpt-3.5-turbo"
+    print(f"Using OpenAI with model: {MODEL_NAME}")
+else:
+    client = Anthropic(api_key=CLAUDE_SECRET)
+    MODEL_NAME = "claude-sonnet-4-20250514"
+    print(f"Using Anthropic with model: {MODEL_NAME}")
+
 mixer.init()
 
 # Global variable to store conversation history
@@ -32,7 +50,8 @@ def query_ollama(question, model="llama3.1:8b"):
         health_url = "http://127.0.0.1:11434/api/tags"
         health_check = requests.get(health_url, timeout=5)
         if health_check.status_code != 200:
-            print("Ollama not responding, escalating to Claude...")
+            provider = "OpenAI" if USE_OPENAI else "Claude"
+            print(f"Ollama not responding, escalating to {provider}...")
             return None
         
         # Use the same system prompt as Claude for consistency
@@ -65,19 +84,21 @@ def query_ollama(question, model="llama3.1:8b"):
         else:
             return None
     except requests.exceptions.Timeout:
-        print("Ollama timeout, escalating to Claude...")
+        provider = "OpenAI" if USE_OPENAI else "Claude"
+        print(f"Ollama timeout, escalating to {provider}...")
         return None
     except requests.exceptions.ConnectionError:
-        print("Ollama not running, escalating to Claude...")
+        provider = "OpenAI" if USE_OPENAI else "Claude"
+        print(f"Ollama not running, escalating to {provider}...")
         return None
     except Exception as e:
         print(f"Ollama error: {e}")
         return None
 
-def should_escalate_to_claude(question, ollama_response):
-    """Determine if we should escalate to Claude based on the question and Ollama's response"""
+def should_escalate_to_cloud(question, ollama_response):
+    """Determine if we should escalate to cloud API based on the question and Ollama's response"""
     
-    # Define keywords that typically require Claude's capabilities
+    # Define keywords that typically require cloud API capabilities
     complex_keywords = [
         "analyze", "complex", "detailed", "research", "compare", "evaluate",
         "strategy", "planning", "code", "programming", "technical", "professional",
@@ -106,36 +127,69 @@ def should_escalate_to_claude(question, ollama_response):
 
 def ask_question_memory(question):
     try:
-        # First, try with Ollama
-        print("Checking with local model...")
+        skip_llama = False
+        if any(hot_word in question for hot_word in API_HOT_WORDS): 
+            skip_llama = True
+        else:
+            # First, try with Ollama
+            print("Checking with local model...")
+            
+            ollama_response = query_ollama(question)
         
-        ollama_response = query_ollama(question)
-        
-        # Decide whether to escalate to Claude
-        if ollama_response and not should_escalate_to_claude(question, ollama_response):
+        # Decide whether to escalate to cloud API
+        if not skip_llama and ollama_response and not should_escalate_to_cloud(question, ollama_response):
             print("Using local model response")
             conversation_history.append({'role': 'user', 'content': question})
             conversation_history.append({'role': 'assistant', 'content': ollama_response})
             return ollama_response
         else:
-            print("Escalating to Claude API...")
-            return ask_claude_api(question)
+            provider = "OpenAI" if USE_OPENAI else "Claude"
+            print(f"Escalating to {provider} API...")
+            return ask_cloud_api(question)
             
     except Exception as e:
         print(f"Error in question processing: {e}")
-        # Fallback to Claude if anything goes wrong
-        return ask_claude_api(question)
+        # Fallback to cloud API if anything goes wrong
+        return ask_cloud_api(question)
+
+def ask_openai_api(question):
+    """OpenAI API function"""
+    try:
+        conversation_history.clear()
+        conversation_history.append({'role': 'user', 'content': question})
+        
+        # OpenAI format includes system message in messages array
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT}
+        ]
+        messages.extend(conversation_history)
+        
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            max_tokens=1000,
+            temperature=0.7
+        )
+        
+        assistant_message = response.choices[0].message.content
+        conversation_history.append({'role': 'assistant', 'content': assistant_message})
+        
+        return assistant_message
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        return f"The OpenAI request failed: {e}"
 
 def ask_claude_api(question):
-    """Original Claude API function"""
+    """Anthropic Claude API function"""
     try:
+        conversation_history.clear()
         conversation_history.append({'role': 'user', 'content': question})
         
         messages = []
         messages.extend(conversation_history)
         
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=MODEL_NAME,
             messages=messages,
             system=SYSTEM_PROMPT,
             max_tokens=1000,
@@ -147,8 +201,15 @@ def ask_claude_api(question):
         
         return assistant_message
     except Exception as e:
-        print(f"An error occurred: {e}")
-        return f"The request failed: {e}"
+        print(f"Claude API error: {e}")
+        return f"The Claude request failed: {e}"
+
+def ask_cloud_api(question):
+    """Router function that calls the appropriate API based on USE_OPENAI flag"""
+    if USE_OPENAI:
+        return ask_openai_api(question)
+    else:
+        return ask_claude_api(question)
 
 async def generate_tts(sentence, speech_file_path):
     try:
@@ -183,5 +244,42 @@ def tts_caller(text):
         print(f"TTS processing error: {e}")
         return "error"
     
+
+def debug_model_access():
+    """Test what models you can actually access"""
+    if USE_OPENAI:
+        print("Testing OpenAI models...")
+        models_to_test = ["gpt-4o", "gpt-4", "gpt-3.5-turbo"]
+        
+        for model in models_to_test:
+            try:
+                test_client = OpenAI(api_key=OPENAI_SECRET)
+                response = test_client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": "What's your training cutoff date?"}],
+                    max_tokens=50
+                )
+                print(f"✅ {model}: {response.choices[0].message.content[:100]}...")
+            except Exception as e:
+                print(f"❌ {model}: {str(e)}")
+    else:
+        print("Testing Anthropic models...")
+        models_to_test = [
+            "claude-sonnet-4-20250514",
+            "claude-3-5-sonnet-20241022", 
+            "claude-3-5-sonnet-20240620"
+        ]
+        
+        for model in models_to_test:
+            try:
+                test_client = Anthropic(api_key=CLAUDE_SECRET)
+                response = test_client.messages.create(
+                    model=model,
+                    messages=[{"role": "user", "content": "What's your training cutoff date?"}],
+                    max_tokens=50
+                )
+                print(f"✅ {model}: {response.content[0].text[:100]}...")
+            except Exception as e:
+                print(f"❌ {model}: {str(e)}")
 
 __all__ = ['mixer']

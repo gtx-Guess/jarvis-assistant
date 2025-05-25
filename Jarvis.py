@@ -25,7 +25,7 @@ except ImportError:
 
 import utils
 import time
-from utils import mixer
+from utils import mixer, debug_model_access
 
 # Restore stdout and stderr
 sys.stderr = stderr
@@ -136,7 +136,9 @@ def speech_input_mode():
 
 
 if __name__ == '__main__':
-    if STT_AVAILABLE:
+    speech = False
+    # debug_model_access()
+    if STT_AVAILABLE and speech:
         print("RealtimeSTT detected - Using speech input mode")
         speech_input_mode()
     else:
