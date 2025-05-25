@@ -1,0 +1,1 @@
+This is the dir for my ollama docker file. Might have ollama utils here eventually
