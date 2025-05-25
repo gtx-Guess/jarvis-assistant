@@ -26,6 +26,8 @@ and humorous responses. Call the user by 'Sir'
 # API Keys
 CLAUDE_SECRET = os.environ.get("CLAUDE_API_KEY")
 OPENAI_SECRET = os.environ.get("OPENAI_API_KEY")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Initialize the appropriate client and mixer
@@ -43,11 +45,11 @@ mixer.init()
 # Global variable to store conversation history
 conversation_history = []
 
-def query_ollama(question, model="llama3.1:8b"):
+def query_ollama(question, model="qwen2.5:7b"):
     """Query Ollama local model with proper Jarvis system prompt"""
     try:
         # Check if Ollama is accessible first
-        health_url = "http://127.0.0.1:11434/api/tags"
+        health_url = f"{OLLAMA_BASE_URL}/api/tags"
         health_check = requests.get(health_url, timeout=5)
         if health_check.status_code != 200:
             provider = "OpenAI" if USE_OPENAI else "Claude"
@@ -55,7 +57,7 @@ def query_ollama(question, model="llama3.1:8b"):
             return None
         
         # Use the same system prompt as Claude for consistency
-        ollama_context = """If you don't know something or if the question is complex, just say "I should escalate this to my advanced systems, Sir."""
+        ollama_context = """If you don't know something or if the question is complex, just say "I should escalate this to my advanced systems, Sir. You are allowed to mention which model is being ran in ollama. For example, qwen2.5:7b or llama3.2 but only when asked."""
         # Build conversation context
         context = SYSTEM_PROMPT + ollama_context + "\n\n"
         
