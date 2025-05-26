@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Jarvis - Local Development",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/Jarvis.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {},
+            "stopOnEntry": false,
+            "justMyCode": true
+        }
+    ]
+}

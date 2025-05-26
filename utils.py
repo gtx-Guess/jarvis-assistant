@@ -7,8 +7,6 @@ import edge_tts
 import asyncio
 import os
 import requests
-import json
-import platform
 
 load_dotenv()
 

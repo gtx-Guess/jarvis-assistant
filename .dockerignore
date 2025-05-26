@@ -84,3 +84,5 @@ ollama/
 # Runtime data
 *.pid
 *.lock
+
+speech
