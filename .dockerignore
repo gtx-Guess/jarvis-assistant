@@ -27,6 +27,7 @@ wheels/
 venv/
 env/
 ENV/
+jarvis_env
 
 # IDE and editor files
 .vscode/

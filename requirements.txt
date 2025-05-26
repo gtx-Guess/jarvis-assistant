@@ -4,5 +4,12 @@ python-dotenv==1.0.1
 pygame==2.6.1
 edge-tts==7.0.2
 requests==2.32.3
-numpy<2.0.0
 RealtimeSTT==0.1.13
+pyautogui==0.9.54
+pytesseract==0.3.13
+scipy==1.15.3
+numpy==1.26.4
+torch==2.2.2
+torchaudio==2.2.2
+openai-whisper==20240930
+pillow==11.2.1

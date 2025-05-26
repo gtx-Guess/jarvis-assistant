@@ -110,6 +110,7 @@ venv/
 ENV/
 env/
 VENV/
+jarvis_env
 
 # Spyder project settings
 .spyderproject
