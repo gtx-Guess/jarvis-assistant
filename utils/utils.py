@@ -7,8 +7,38 @@ import edge_tts
 import asyncio
 import os
 import requests
+import json
 
 load_dotenv()
+
+def load_escalation_keywords():
+    try:
+        with open('utils/escalation_keywords.json', 'r') as f:
+            keywords_dict = json.load(f)
+            
+            # Flatten all categories into one list at load time
+            all_keywords = []
+            for category in keywords_dict.values():
+                all_keywords.extend(category)
+                
+            return keywords_dict, all_keywords
+            
+    except FileNotFoundError:
+        print("⚠️ escalation_keywords.json not found, using basic fallback")
+        fallback = {
+            "programming": ["code", "python", "javascript"],
+            "complex_analysis": ["analyze", "research"]
+        }
+        all_keywords = ["code", "python", "javascript", "analyze", "research"]
+        return fallback, all_keywords
+
+# Load once at startup
+ESCALATION_KEYWORDS, ALL_ESCALATION_KEYWORDS = load_escalation_keywords()
+
+def should_escalate_immediately(question):
+    """Fast keyword check using pre-built list"""
+    question_lower = question.lower()
+    return any(keyword in question_lower for keyword in ALL_ESCALATION_KEYWORDS)
 
 # Environment variable configuration
 USE_OPENAI_ENV = os.environ.get("USE_OPENAI", "true").lower()
@@ -35,7 +65,6 @@ if ENABLE_AUDIO in ["true", "auto"]:
         if ENABLE_AUDIO == "true":
             print(f"⚠️ Audio input failed to initialize: {e}")
 
-API_HOT_WORDS = ["claude", "anthropic", "openai", "chatgpt"]
 SYSTEM_PROMPT = """You are Jarvis, you are similar to the AI assistant from Iron Man. Remember, I am not Tony Stark, just your creator. 
 You are formal and helpful, and you don't make up facts, you only comply to the user requests. 
 REMEMBER ONLY TO PUT HASHTAGS IN THE END OF THE SENTENCE, NEVER ANYWHERE ELSE
@@ -181,34 +210,21 @@ def query_ollama(question, model=None):
         print(f"💥 Ollama error after {elapsed:.2f}s: {e}")
         return None
 
-def should_escalate_to_cloud(question, ollama_response):
-    """Determine if we should escalate to cloud API based on the question and Ollama's response"""
+def should_escalate_to_cloud(question, ollama_response=None):
     
-    # Define keywords that typically require cloud API capabilities
-    complex_keywords = [
-        "analyze", "complex", "detailed", "research", "compare", "evaluate",
-        "strategy", "planning", "code", "programming", "technical", "professional",
-        "creative writing", "essay", "report", "comprehensive"
-    ]
-    
-    # Always escalate for certain types of requests
-    if any(keyword in question.lower() for keyword in complex_keywords):
-        return True
-    
-    # If Ollama couldn't respond or gave a very short response
-    if not ollama_response or len(ollama_response.strip()) < 10:
-        return True
-    
-    # If Ollama explicitly says it should escalate or doesn't know
-    escalation_phrases = [
-        "escalate this to my advanced systems", "i don't know", "i'm not sure", 
-        "i can't", "i don't have", "unclear", "uncertain", "unable to", "sorry, i"
-    ]
-    
+    # If no ollama response yet, don't escalate based on question alone
+    if ollama_response is None:
+        return False
+        
+    # Escalate if ollama explicitly says to escalate
+    escalation_phrases = ["escalate this to my advanced systems", "i don't know"]
     if any(phrase in ollama_response.lower() for phrase in escalation_phrases):
         return True
-    
-    # For simple questions, use Ollama's response
+        
+    # Escalate if response seems incomplete/unhelpful
+    if len(ollama_response.strip()) < 5 or "i can't" in ollama_response.lower():
+        return True
+        
     return False
 
 def ask_question_memory(question):
@@ -216,16 +232,13 @@ def ask_question_memory(question):
     
     try:
         skip_llama = False
-        if any(hot_word in question for hot_word in API_HOT_WORDS): 
+        if should_escalate_immediately(question): 
             skip_llama = True
             print(f"🔥 API hot word detected, skipping local model")
         else:
-            # First, try with Ollama
             print("Checking with local model...")
-            
             ollama_response = query_ollama(question)
         
-        # Decide whether to escalate to cloud API
         if not skip_llama and ollama_response and not should_escalate_to_cloud(question, ollama_response):
             total_time = time.time() - total_start_time
             print(f"✅ Using local model response (Total: {total_time:.2f}s)")
@@ -251,7 +264,6 @@ def ask_openai_api(question):
     start_time = time.time()
     
     try:
-        conversation_history.clear()
         conversation_history.append({'role': 'user', 'content': question})
         
         # OpenAI format includes system message in messages array
@@ -296,7 +308,6 @@ def ask_claude_api(question):
     start_time = time.time()
     
     try:
-        conversation_history.clear()
         conversation_history.append({'role': 'user', 'content': question})
         
         messages = []

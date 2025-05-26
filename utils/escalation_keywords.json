@@ -1,0 +1,14 @@
+{
+    "programming": [
+      "code", "coding", "program", "programming", "script", "scripting",
+      "debug", "debugging", "error", "exception", "bug", "fix",
+      "python", "javascript", "java", "c++", "react", "docker", "git", "docker"
+    ],
+    "complex_analysis": [
+      "analyze", "analysis", "research", "strategy", "planning", 
+      "comprehensive", "report", "technical", "documentation"
+    ],
+    "immediate_escalation": [
+      "anthropic", "claude", "openai", "chatgpt"
+    ]
+}

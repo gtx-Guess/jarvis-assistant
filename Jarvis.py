@@ -23,9 +23,9 @@ try:
 except ImportError:
     STT_AVAILABLE = False
 
-import utils
+import utils.utils as utils
 import time
-from utils import mixer, debug_model_access
+from utils.utils import mixer, debug_model_access
 
 # Restore stdout and stderr
 sys.stderr = stderr
@@ -39,7 +39,7 @@ def text_input_mode():
     
     print("Jarvis Text Assistant Ready...")
     print("Type 'shutdown' or 'shut down' to exit.")
-    print("=" * 50)
+    print("=" * 100)
     text_input_counter = 0
     try:
         while True:
@@ -60,14 +60,13 @@ def text_input_mode():
                 if current_text:
                     # Check for shutdown command
                     if "shutdown" in current_text.lower() or "shut down" in current_text.lower():
+                        goodbye = "Shutting down now, Sir. Goodbye."
                         try:
-                            goodbye = "Shutting down now, Sir. Goodbye."
                             print(f"Jarvis: {goodbye}")
                             utils.tts_caller(goodbye)
-                            time.sleep(1)
                         finally:
                             mixer.quit()
-                            print("Goodbye!")
+                            print("=" * 100)
                             return
                     else:
                         # Process the request
@@ -92,6 +91,7 @@ def text_input_mode():
         print("\nShutting down...")
         mixer.quit()
         print("Goodbye!")
+        print("=" * 100)
 
 
 def speech_input_mode():
@@ -111,13 +111,13 @@ def speech_input_mode():
                     print("User: " + current_text)
                     recorder.stop()
                     if "shutdown" in current_text.lower() or "shut down" in current_text.lower():
+                        goodbye = "Shutting down now, Sir. Goodbye."
                         try:
-                            goodbye = "Shutting down now, Sir. Goodbye."
                             utils.tts_caller(goodbye)
-                            time.sleep(1)
                         finally:
                             recorder.stop()
                             mixer.quit()
+                            print("=" * 100)
                             os._exit(0)
                     else:
                         current_text = current_text + " " + time.strftime("%Y-%m-%d %H-%M-%S")
@@ -129,6 +129,7 @@ def speech_input_mode():
                         recorder.start()
     except KeyboardInterrupt:
         print("\nShutting down...")
+        print("=" * 100)
         recorder.stop()
         mixer.quit()
         sys.stderr = stderr
