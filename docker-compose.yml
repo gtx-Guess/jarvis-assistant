@@ -1,0 +1,15 @@
+services:
+  jarvis:
+    build: .
+    container_name: jarvis-app
+    environment:
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - USE_OPENAI=${USE_OPENAI:-true}
+      - ENABLE_AUDIO=false
+    volumes:
+      - ./audio:/app/audio
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
