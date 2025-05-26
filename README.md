@@ -1,3 +1,9 @@
+This is a personal assistant project.
+
+The idea is that you would have ollama running in docker (this has a docker file for that) as an interference/router layer. Then if ollama needs to it will route the request to the proper ai model.
+ChatGPT for reasoning and general info
+Claude for code and software development
+
 Different ways of running this when on mac vs windows.
 
 WINDOWS
