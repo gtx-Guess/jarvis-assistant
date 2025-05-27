@@ -9,6 +9,4 @@ The idea is that you would have ollama running in docker (this has a docker file
 ChatGPT for reasoning and general info
 Claude for code and software development
 
-Different ways of running this when on mac vs windows.
-
 Windows and MAC run similarly but youll have to install the respective list of libraries manually
