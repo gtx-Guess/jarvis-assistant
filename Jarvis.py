@@ -183,6 +183,9 @@ class ScreenMonitor:
         print("   'Debug this code'")
         print("   'Look at lines 50-75'")
         print("   'Check line 42'")
+
+        jarvis_response = "Screen monitoring is now active, Sir. You can ask me to analyze, explain, debug, or review any code on your screen. You can also specify line numbers if needed."
+        utils.tts_caller(jarvis_response)
         
     def stop_monitoring(self):
         """Stop screen monitoring"""
@@ -310,7 +313,6 @@ def speech_input_mode():
                         try:
                             utils.tts_caller(goodbye)
                         finally:
-                            recorder.stop()
                             mixer.quit()
                             print("=" * 100)
                             os._exit(0)
