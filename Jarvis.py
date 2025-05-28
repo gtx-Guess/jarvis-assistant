@@ -120,7 +120,7 @@ class JarvisApp:
                         else:
                             # Process the regular request
                             current_text = current_text + " " + time.strftime("%Y-%m-%d %H-%M-%S")
-                            response = utils.ask_question_memory(current_text)
+                            response = utils.ask_question_memory(current_text, self.conversation_history)
                             
                             # Split response and speech
                             speech = response.split('#')[0]
@@ -195,7 +195,7 @@ class JarvisApp:
                             
                         else:
                             current_text = current_text + " " + time.strftime("%Y-%m-%d %H-%M-%S")
-                            response = utils.ask_question_memory(current_text)
+                            response = utils.ask_question_memory(current_text, self.conversation_history)
                             print(response)
                             speech = response.split('#')[0]
                             utils.tts_caller(speech)
