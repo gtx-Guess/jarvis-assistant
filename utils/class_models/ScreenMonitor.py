@@ -20,7 +20,9 @@ class ScreenMonitor:
             "what does this code do", "is this code correct", "fix this code",
             "improve this code", "optimize this code", "refactor this code",
             "look at line", "analyze line", "check line", "review line",
-            "what's wrong with this", "help me with this code", "thoughts on this code"
+            "what's wrong with this", "help me with this code", "thoughts on this code", 
+            "look at my code", "tell me about my current code", "tell me about the code on my screen",
+            "capture my screen", "look at my screen"
         ]
         
         return any(trigger in text_lower for trigger in screen_triggers)
@@ -33,12 +35,12 @@ class ScreenMonitor:
             return "explain"
         elif any(word in text_lower for word in ["debug", "fix", "wrong", "error", "bug"]):
             return "debug"
-        elif any(word in text_lower for word in ["review", "check", "correct", "validate"]):
+        elif any(word in text_lower for word in ["review", "check", "correct", "validate", "look"]):
             return "review"
         elif any(word in text_lower for word in ["improve", "optimize", "better", "refactor", "suggest"]):
             return "suggest"
         else:
-            return "analyze"  # Default
+            return "analyze"
     
     def extract_line_numbers(self, text):
         """Extract line number ranges from text like 'lines 345-380' or 'line 50'"""
@@ -93,7 +95,7 @@ class ScreenMonitor:
             print(f"❌ Screen capture error: {e}")
             return None
     
-    def process_screen_request(self, request_type="analyze", original_text=""):
+    def process_screen_request(self, conversation_history, request_type="analyze", original_text=""):
         """Process screen capture with specific request type"""
         captured_text = self.capture_screen()
         
@@ -129,7 +131,7 @@ class ScreenMonitor:
         timestamped_prompt = prompt + " " + time.strftime("%Y-%m-%d %H-%M-%S")
         
         print(f"🤖 Processing screen capture with {request_type} request...")
-        response = utils.ask_question_memory(timestamped_prompt)
+        response = utils.ask_question_memory(timestamped_prompt, conversation_history)
         
         # Split response and speech (keeping your existing format)
         speech = response.split('#')[0]
@@ -153,7 +155,7 @@ class ScreenMonitor:
         print("   'Look at lines 50-75'")
         print("   'Check line 42'")
 
-        jarvis_response = "You can ask me to analyze, explain, debug, or review any code on your screen. You can also specify line numbers if needed."
+        jarvis_response = "Screen monitoring enabled, Sir. I can now analyze your code when you ask. You can ask me to analyze, explain, debug, or review any code on your screen. You can also specify line numbers if needed."
         utils.tts_caller(jarvis_response)
         
     def stop_monitoring(self):

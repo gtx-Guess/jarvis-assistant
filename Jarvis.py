@@ -23,6 +23,11 @@ class JarvisApp:
         # Store original streams for restoration
         self.original_stderr = sys.stderr
         self.original_stdout = sys.stdout
+        self.conversation_history = []
+    
+    def clear_history(self):
+        self.conversation_history.clear()
+        utils.tts_caller("Conversation history has been cleared")
         
     def cleanup_and_exit(self):
         """Graceful shutdown with proper cleanup order"""
@@ -42,13 +47,13 @@ class JarvisApp:
                 self.recorder.stop()
                 time.sleep(0.5)
                 print("✅ Audio recorder stopped")
-                utils.tts_caller("Audio recorder stopped, Sir.")
+                utils.tts_caller("Audio recorder stopped")
             except Exception as e:
                 print(f"⚠️ Audio recorder cleanup failed: {e}")
         
         # Announce mixer shutdown BEFORE actually stopping it
         try:
-            utils.tts_caller("Audio mixer shutting down, Sir.")
+            utils.tts_caller("Audio mixer shutting down")
             time.sleep(1)  # Give TTS time to finish
             utils.mixer.quit()
             print("✅ Audio mixer stopped")
@@ -92,9 +97,10 @@ class JarvisApp:
                 if any(hot_word in current_text.lower() for hot_word in self.hot_words) or self.skip_hot_word_check:
                     if current_text:
                         # Check for screen monitoring commands
-                        if "screen monitor" in current_text.lower():
+                        if utils.start_screen_monitor(current_text):
                             if not self.screen_monitor.monitoring:
                                 self.screen_monitor.start_monitoring()
+                                utils.tts_caller("Go ahead and give me a command")
                             else:
                                 response = "Screen monitoring is already active, Sir."
                                 print(f"Jarvis: {response}")
@@ -104,10 +110,10 @@ class JarvisApp:
                         # Natural screen analysis commands
                         elif self.screen_monitor.monitoring and self.screen_monitor.should_analyze_screen(current_text):
                             request_type = self.screen_monitor.detect_request_type(current_text)
-                            self.screen_monitor.process_screen_request(request_type, current_text)
+                            self.screen_monitor.process_screen_request(self.conversation_history, request_type, current_text)
                             self.skip_hot_word_check = True
                             
-                        elif "stop monitor" in current_text.lower() or "disable monitor" in current_text.lower():
+                        elif utils.stop_screen_monitor(current_text):
                             self.screen_monitor.stop_monitoring()
                             self.skip_hot_word_check = True
                             
@@ -165,24 +171,24 @@ class JarvisApp:
                             self.cleanup_and_exit()
                         
                         # Screen monitoring commands
-                        elif "screen monitor" in current_text.lower():
+                        elif utils.start_screen_monitor(current_text):
                             if not self.screen_monitor.monitoring:
                                 self.screen_monitor.start_monitoring()
-                                response = "Screen monitoring enabled, Sir. I can now analyze your code when you ask."
+                                utils.tts_caller("Go ahead and give me a command")
                             else:
                                 response = "Screen monitoring is already active, Sir."
-                            utils.tts_caller(response)
+                                utils.tts_caller(response)
                             self.skip_hot_word_check = True
                             self.recorder.start()
                             
                         # Natural screen analysis commands
                         elif self.screen_monitor.monitoring and self.screen_monitor.should_analyze_screen(current_text):
                             request_type = self.screen_monitor.detect_request_type(current_text)
-                            self.screen_monitor.process_screen_request(request_type, current_text)
+                            self.screen_monitor.process_screen_request(self.conversation_history, request_type, current_text)
                             self.skip_hot_word_check = True
                             self.recorder.start()
                             
-                        elif "stop monitor" in current_text.lower() or "disable monitor" in current_text.lower():
+                        elif utils.stop_screen_monitor(current_text):
                             self.screen_monitor.stop_monitoring()
                             self.skip_hot_word_check = True
                             self.recorder.start()

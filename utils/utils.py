@@ -104,9 +104,6 @@ except Exception as e:
     print(f"🔇 Audio output not available: {e}")
     print("📝 TTS will be disabled - text responses only")
 
-# Global variable to store conversation history
-conversation_history = []
-
 def get_input_mode():
     """Determine if we should use audio or text input"""
     if not AUDIO_AVAILABLE:
@@ -130,7 +127,7 @@ def get_input_mode():
     
     return "text"
 
-def query_ollama(question, model=None):
+def query_ollama(question, conversation_history, model=None):
     """Query Ollama local model with proper Jarvis system prompt"""
     if model is None:
         model = OLLAMA_MODEL
@@ -227,7 +224,7 @@ def should_escalate_to_cloud(question, ollama_response=None):
         
     return False
 
-def ask_question_memory(question):
+def ask_question_memory(question, conversation_history):
     total_start_time = time.time()
     
     try:
@@ -237,7 +234,7 @@ def ask_question_memory(question):
             print(f"🔥 API hot word detected, skipping local model")
         else:
             print("Checking with local model...")
-            ollama_response = query_ollama(question)
+            ollama_response = query_ollama(question, conversation_history)
         
         if not skip_llama and ollama_response and not should_escalate_to_cloud(question, ollama_response):
             total_time = time.time() - total_start_time
@@ -248,7 +245,7 @@ def ask_question_memory(question):
         else:
             provider = "OpenAI" if USE_OPENAI else "Claude"
             print(f"📡 Escalating to {provider} API...")
-            cloud_response = ask_cloud_api(question)
+            cloud_response = ask_cloud_api(question, conversation_history)
             total_time = time.time() - total_start_time
             print(f"🌐 Total query time (including escalation): {total_time:.2f}s")
             return cloud_response
@@ -257,9 +254,9 @@ def ask_question_memory(question):
         total_time = time.time() - total_start_time
         print(f"💥 Error in question processing after {total_time:.2f}s: {e}")
         # Fallback to cloud API if anything goes wrong
-        return ask_cloud_api(question)
+        return ask_cloud_api(question, conversation_history)
 
-def ask_openai_api(question):
+def ask_openai_api(question, conversation_history):
     """OpenAI API function with timing"""
     start_time = time.time()
     
@@ -303,7 +300,7 @@ def ask_openai_api(question):
         print(f"❌ OpenAI API error after {elapsed:.2f}s: {e}")
         return f"The OpenAI request failed: {e}"
 
-def ask_claude_api(question):
+def ask_claude_api(question, conversation_history):
     """Anthropic Claude API function with timing"""
     start_time = time.time()
     
@@ -345,12 +342,12 @@ def ask_claude_api(question):
         print(f"❌ Claude API error after {elapsed:.2f}s: {e}")
         return f"The Claude request failed: {e}"
 
-def ask_cloud_api(question):
+def ask_cloud_api(question, conversation_history):
     """Router function that calls the appropriate API based on USE_OPENAI flag"""
     if USE_OPENAI:
-        return ask_openai_api(question)
+        return ask_openai_api(question, conversation_history)
     else:
-        return ask_claude_api(question)
+        return ask_claude_api(question, conversation_history)
 
 async def generate_tts(sentence, speech_file_path):
     try:
@@ -373,15 +370,15 @@ def play_sound(file_path):
         except Exception as e:
             print(f"Sound playback error: {e}")
 
-def tts_caller(text):
+def tts_caller(text: str):
     if not AUDIO_OUTPUT_AVAILABLE:
         print(f"🔇 TTS skipped: {text}")
         return "skipped"
         
     try:
         speech_file_path = "speech.mp3"
-        # Run the async function
-        asyncio.run(generate_tts(text, speech_file_path))
+        cleaned_string = clean_up_tts_string(text)
+        asyncio.run(generate_tts(cleaned_string, speech_file_path))
         if os.path.exists(speech_file_path):
             play_sound(speech_file_path)
             while mixer.music.get_busy():
@@ -392,6 +389,14 @@ def tts_caller(text):
     except Exception as e:
         print(f"TTS processing error: {e}")
         return "error"
+
+def clean_up_tts_string(text: str):
+    text = text.replace("**", "")
+    text = text.replace("*", "")
+    text = text.replace("`", "")
+    text = text.replace("##", "")
+    text = text.replace("#", "") 
+    return text
 
 def debug_model_access():
     """Test what models you can actually access with timing"""
@@ -435,5 +440,134 @@ def debug_model_access():
             except Exception as e:
                 elapsed = time.time() - start_time
                 print(f"❌ {model}: {str(e)} ({elapsed:.2f}s)")
+
+
+def start_screen_monitor(text: str):
+    '''
+        Checkes current_text to see if the user asked for screen monitoring to start
+    '''
+    start_monitoring = [
+        # Direct commands
+        "start monitoring",
+        "start watching",
+        "start screen monitor",
+        "turn on monitoring",
+        "turn on screen monitor",
+        "screen monitor on",
+        "enable monitoring",
+        "enable screen monitor",
+        "activate monitoring",
+        "activate screen monitor",
+        
+        # More casual phrases
+        "watch the screen",
+        "monitor the screen",
+        "keep an eye on the screen",
+        "start screen recording",
+        "begin monitoring",
+        "begin watching",
+        "start tracking",
+        "track the screen",
+        "observe the screen",
+        "surveillance on",
+        
+        # Natural speech patterns
+        "can you monitor",
+        "please monitor",
+        "start to monitor",
+        "begin to watch",
+        "keep watch",
+        "watch my screen",
+        "monitor my screen",
+        "track my screen",
+        "record my screen",
+        "capture my screen",
+        
+        # Jarvis-style commands
+        "jarvis monitor",
+        "jarvis watch",
+        "jarvis start monitoring",
+        "jarvis screen on",
+        "monitor mode on",
+        "watching mode",
+        "surveillance mode",
+        
+        # Alternative phrasings
+        "switch on monitoring",
+        "fire up monitoring",
+        "boot up screen monitor",
+        "initialize monitoring",
+        "commence monitoring",
+        "engage monitoring"
+    ]
+    
+    if any(key_word in text.lower() for key_word in start_monitoring):
+        return True
+    return False
+
+def stop_screen_monitor(text: str):
+    '''
+        Checkes current_text to see if the user asked for screen monitoring to stop
+    '''
+    stop_monitoring = [
+        # Direct commands
+        "stop monitoring",
+        "stop watching",
+        "stop screen monitor",
+        "turn off monitoring",
+        "turn off screen monitor",
+        "screen monitor off",
+        "disable monitoring",
+        "disable screen monitor",
+        "deactivate monitoring",
+        "deactivate screen monitor",
+        
+        # More casual phrases
+        "stop watching the screen",
+        "stop monitoring the screen",
+        "end monitoring",
+        "end watching",
+        "stop screen recording",
+        "stop tracking",
+        "stop tracking the screen",
+        "stop observing",
+        "surveillance off",
+        "quit monitoring",
+        
+        # Natural speech patterns
+        "stop monitoring please",
+        "please stop monitoring",
+        "can you stop monitoring",
+        "stop watching my screen",
+        "stop monitoring my screen",
+        "stop tracking my screen",
+        "stop recording my screen",
+        "stop capturing my screen",
+        
+        # Jarvis-style commands
+        "jarvis stop monitoring",
+        "jarvis stop watching",
+        "jarvis screen off",
+        "monitor mode off",
+        "watching mode off",
+        "surveillance mode off",
+        "jarvis disable monitoring",
+        
+        # Alternative phrasings
+        "switch off monitoring",
+        "shut down monitoring",
+        "shut off screen monitor",
+        "terminate monitoring",
+        "cease monitoring",
+        "halt monitoring",
+        "kill monitoring",
+        "cancel monitoring",
+        "exit monitoring",
+        "close monitoring"
+    ]
+    
+    if any(key_word in text.lower() for key_word in stop_monitoring):
+        return True
+    return False
 
 __all__ = ['mixer']
