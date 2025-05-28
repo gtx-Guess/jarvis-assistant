@@ -1,9 +1,0 @@
-services:
-  jarvis:
-    environment:
-      - ENABLE_AUDIO=true
-      - PULSE_SERVER=unix:/tmp/pulse-socket
-    volumes:
-      - /run/user/1000/pulse:/tmp/pulse-socket
-    devices:
-      - /dev/snd:/dev/snd
